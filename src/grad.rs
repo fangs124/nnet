@@ -18,7 +18,7 @@ impl Gradient {
         Gradient { dbs: Vec::new(), dbs_shape: Vec::new(), dws: Vec::new(), dws_shape: Vec::new() }
     }
 
-    pub fn zero(net: &Network) -> Self {
+    pub fn zero<T>(net: &Network<T>) -> Self {
         let mut grad = Gradient::new();
         for layer in &net.layers {
             grad.dbs.push(DVector::zeros(layer.b.nrows()));

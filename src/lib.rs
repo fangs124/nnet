@@ -3,7 +3,10 @@ extern crate nalgebra as na;
 mod grad;
 mod phi;
 
-use std::ops::{Add, Mul};
+use std::{
+    marker::PhantomData,
+    ops::{Add, Mul},
+};
 
 use na::base::{DMatrix, DVector};
 use serde::{Deserialize, Serialize};
@@ -14,10 +17,11 @@ use phi::PhiT;
 use crate::phi::safesoftmax;
 
 #[derive(Serialize, Deserialize, Clone)]
-pub struct Network {
+pub struct Network<T> {
     pub input_dim: usize,
     pub node_counts: Vec<usize>,
     layers: Vec<Layer>,
+    phantom: PhantomData<T>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -33,7 +37,7 @@ pub trait InputType {
     fn to_vector(&self) -> DVector<f32>;
 }
 
-impl Network {
+impl<T: InputType> Network<T> {
     const TRESHOLD: f32 = 0.0005;
     //const DEFAULT_ALPHA: f32 = 0.5;
     //const DEFAULT_GAMMA: f32 = 0.90;
@@ -61,12 +65,12 @@ impl Network {
         let mut layers: Vec<Layer> = Vec::with_capacity(node_counts.len());
         let mut j = input_dim;
         for (nth, &i) in node_counts.iter().enumerate() {
-            layers.push(Layer::new(i, j, nth, Network::DEFAULT_IN_PHI));
+            layers.push(Layer::new(i, j, nth, Network::<T>::DEFAULT_IN_PHI));
             j = i;
         }
 
-        layers[node_counts.len() - 1].ty = Network::DEFAULT_OUT_PHI;
-        Network { input_dim, node_counts, layers }
+        layers[node_counts.len() - 1].ty = Network::<T>::DEFAULT_OUT_PHI;
+        Network { input_dim, node_counts, layers, phantom: PhantomData }
     }
 
     pub fn forward_prop<S>(&mut self, input: &impl InputType) {
