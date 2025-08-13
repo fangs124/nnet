@@ -1,6 +1,6 @@
 extern crate nalgebra as na;
 
-mod grad;
+pub mod grad;
 mod phi;
 
 use std::{
@@ -11,12 +11,12 @@ use std::{
 use na::base::{DMatrix, DVector};
 use serde::{Deserialize, Serialize};
 
-use grad::Gradient;
+pub use grad::Gradient;
 use phi::PhiT;
 
 use crate::phi::safesoftmax;
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Network<T> {
     pub input_dim: usize,
     pub node_counts: Vec<usize>,
@@ -24,7 +24,7 @@ pub struct Network<T> {
     phantom: PhantomData<T>,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Layer {
     w: DMatrix<f32>,
     b: DVector<f32>,
@@ -73,7 +73,7 @@ impl<T: InputType> Network<T> {
         Network { input_dim, node_counts, layers, phantom: PhantomData }
     }
 
-    pub fn forward_prop<S>(&mut self, input: &impl InputType) {
+    pub fn forward_prop(&mut self, input: &impl InputType) {
         //
         let mut prev_phiz = input.to_vector();
         for layer in self.layers.iter_mut() {
@@ -82,7 +82,7 @@ impl<T: InputType> Network<T> {
         }
     }
 
-    pub fn backward_prop<S>(&mut self, input: &impl InputType) -> Gradient {
+    pub fn backward_prop(&mut self, input: &impl InputType) -> Gradient {
         let input_vector = input.to_vector();
         // dphi/da
         let mut dphida = self.layers[self.layers.len() - 1].dphi();
