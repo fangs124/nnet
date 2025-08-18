@@ -46,7 +46,7 @@ impl<T: InputType> Network<T> {
     //const DEFAULT_GAMMA: f32 = 0.90;
     const DEFAULT_IN_PHI: PhiT = PhiT::LReLU;
     const DEFAULT_IN_TY: LayerT = LayerT::Act(Network::<T>::DEFAULT_IN_PHI);
-    const DEFAULT_OUT_PHI: PhiT = PhiT::Id;
+    const DEFAULT_OUT_PHI: PhiT = PhiT::Tanh;
     const DEFAULT_OUT_TY: LayerT = LayerT::Act(Network::<T>::DEFAULT_OUT_PHI);
     const PI_TY: LayerT = LayerT::Pi;
 
@@ -76,6 +76,11 @@ impl<T: InputType> Network<T> {
     pub fn phi_z(&self) -> Vec<f32> {
         let i = self.layers.len() - 1;
         self.layers[i].phi().data.as_vec().to_vec()
+    }
+
+    pub fn phi_z_vector(&self) -> DVector<f32> {
+        let i = self.layers.len() - 1;
+        self.layers[i].phi()
     }
 
     pub fn new(input_dim: usize, node_counts: Vec<usize>) -> Self {
