@@ -107,22 +107,30 @@ impl<T: InputType> Network<T> {
         Network { input_dim, node_counts, layers, phantom: PhantomData }
     }
 
+    #[inline(always)]
     pub fn forward_prop(&mut self, input: &impl InputType) {
-        //
-        let mut prev_phiz = input.to_vector();
+        self.forward_prop_vector(input.to_vector());
+    }
+
+    pub fn forward_prop_vector(&mut self, input: DVector<f32>) {
+        let mut prev_phiz = input;
         for layer in self.layers.iter_mut() {
             layer.compute_z(&prev_phiz);
             prev_phiz = layer.phi();
         }
     }
 
+    #[inline(always)]
     pub fn backward_prop(&mut self, input: &impl InputType, target: DVector<f32>, r: f32) -> Gradient {
-        let input_vector = input.to_vector();
+        return self.backward_prop_vector(input.to_vector(), target, r);
+    }
+
+    pub fn backward_prop_vector(&mut self, input: DVector<f32>, target: DVector<f32>, r: f32) -> Gradient {
         //z = w*phi(z') + b
         //a = phi(z)
 
         // dphi/da
-        self.forward_prop(input);
+        self.forward_prop_vector(input.clone());
         let mut dphida = r.abs() * (DVector::from(self.phi_z()) - target); //TODO //output_deltas
 
         let mut grad = Gradient::new();
@@ -133,7 +141,7 @@ impl<T: InputType> Network<T> {
 
             // dz/dw           = a_{k-1}
             let dzdw = match layer.index {
-                0 => input_vector.clone(),
+                0 => input.clone(),
                 _ => self.layers[layer.index - 1].phi(), //TODO
             };
 
