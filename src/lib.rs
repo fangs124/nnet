@@ -264,7 +264,7 @@ impl Layer {
 
     pub fn dphi(&self) -> DVector<f32> {
         match &self.ty {
-            LayerT::Pi => self.z.clone(), //TODO might need to fix this
+            LayerT::Pi => DVector::from_element(self.z.len(), 1.0), //TODO might need to fix this
             LayerT::Act(phi_t) => self.z.map(phi_t.dphi()),
         }
     }
