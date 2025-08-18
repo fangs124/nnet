@@ -120,6 +120,18 @@ impl<T: InputType> Network<T> {
         }
     }
 
+    //#[inline(always)]
+    //pub fn forward_prop_phi_mutless(&self, input: &impl InputType) -> Vec<f32> {
+    //    let mut prev_phiz = input.to_vector();
+    //    for layer in self.layers.iter() {
+    //        let current_phiz = layer.compute_z_mutless(&prev_phiz);
+    //        assert!(layer.ty != LayerT::Pi);
+    //        let LayerT::Act(ty) = layer.ty.clone() else { unreachable!() };
+    //        prev_phiz = current_phiz.map(ty.phi());
+    //    }
+    //    prev_phiz.data.as_vec().to_vec()
+    //}
+
     #[inline(always)]
     pub fn backward_prop(&mut self, input: &impl InputType, target: DVector<f32>, r: f32) -> Gradient {
         return self.backward_prop_vector(input.to_vector(), target, r);
@@ -267,6 +279,10 @@ impl Layer {
     pub fn compute_z(&mut self, prev_phiz: &DVector<f32>) {
         self.z = &self.w * prev_phiz + &self.b;
     }
+
+    //pub fn compute_z_mutless(&self, prev_phiz: &DVector<f32>) -> DVector<f32> {
+    //    return &self.w * prev_phiz + &self.b;
+    //}
 
     pub fn phi(&self) -> DVector<f32> {
         match &self.ty {
