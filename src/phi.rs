@@ -1,13 +1,14 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub enum PhiT {
-    //Sigmoid,
-    //ReLU,
+    Sigmoid,
+    ReLU,
     //ReLU6,
-    //LReLU,
+    LReLU,
     LReLU6,
     Tanh,
+    Id,
     //SoftPlus,
     //FSigmoid,
     //Linear,
@@ -18,18 +19,57 @@ pub enum PhiT {
 impl PhiT {
     pub fn phi(&self) -> fn(f32) -> f32 {
         match self {
+            PhiT::Sigmoid => sigmoid,
+            PhiT::ReLU => relu,
+            PhiT::LReLU => lrelu,
             PhiT::LReLU6 => lrelu6,
             PhiT::Tanh => tanh,
-            //PhiT::SPReLU => sprelu,
+            PhiT::Id => id,
         }
     }
 
     pub fn dphi(&self) -> fn(f32) -> f32 {
         match self {
+            PhiT::Sigmoid => dsigmoid,
+            PhiT::ReLU => drelu,
+            PhiT::LReLU => dlrelu,
             PhiT::LReLU6 => dlrelu6,
             PhiT::Tanh => dtanh,
+            PhiT::Id => did,
         }
     }
+}
+
+fn id(x: f32) -> f32 {
+    x
+}
+
+fn did(_x: f32) -> f32 {
+    1.0
+}
+
+fn sigmoid(x: f32) -> f32 {
+    1.0 / (1.0 + f32::exp(-x))
+}
+
+fn dsigmoid(x: f32) -> f32 {
+    sigmoid(x) * (1.0 - sigmoid(x))
+}
+
+fn relu(x: f32) -> f32 {
+    if x >= 0.0 { x } else { 0.0 }
+}
+
+fn drelu(x: f32) -> f32 {
+    if x >= 0.0 { 1.0 } else { 0.0 }
+}
+
+fn lrelu(x: f32) -> f32 {
+    if x < 0.0 { 0.01 * x } else { x }
+}
+
+fn dlrelu(x: f32) -> f32 {
+    if x < 0.0 { 0.01 } else { 1.0 }
 }
 
 fn lrelu6(x: f32) -> f32 {
@@ -53,7 +93,7 @@ fn dlrelu6(x: f32) -> f32 {
 }
 
 fn tanh(x: f32) -> f32 {
-    x.tanh()
+    x.tanh() + 1.0
 }
 
 fn dtanh(x: f32) -> f32 {
@@ -71,5 +111,5 @@ pub fn safesoftmax(xs: &Vec<f32>) -> Vec<f32> {
         output_vec.push(val);
     }
 
-    output_vec.iter_mut().map(|x: &mut f32| *x / total).collect()
+    output_vec.iter().map(|x: &f32| x / total).collect()
 }

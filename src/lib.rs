@@ -3,10 +3,7 @@ extern crate nalgebra as na;
 pub mod grad;
 mod phi;
 
-use std::{
-    marker::PhantomData,
-    ops::{Add, Mul},
-};
+use std::marker::PhantomData;
 
 use na::base::{DMatrix, DVector};
 use serde::{Deserialize, Serialize};
@@ -16,21 +13,27 @@ use phi::PhiT;
 
 use crate::phi::safesoftmax;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Network<T> {
     pub input_dim: usize,
     pub node_counts: Vec<usize>,
-    layers: Vec<Layer>,
+    pub layers: Vec<Layer>,
     phantom: PhantomData<T>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Layer {
-    w: DMatrix<f32>,
-    b: DVector<f32>,
-    z: DVector<f32>, //z = w*phi(z') + b
+    pub w: DMatrix<f32>,
+    pub b: DVector<f32>,
+    pub z: DVector<f32>, //z = w*phi(z') + b
     index: usize,
-    ty: PhiT,
+    ty: LayerT,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum LayerT {
+    Pi,
+    Act(PhiT),
 }
 
 pub trait InputType {
@@ -38,11 +41,32 @@ pub trait InputType {
 }
 
 impl<T: InputType> Network<T> {
-    const TRESHOLD: f32 = 0.0005;
+    //const TRESHOLD: f32 = 0.0005;
     //const DEFAULT_ALPHA: f32 = 0.5;
     //const DEFAULT_GAMMA: f32 = 0.90;
-    const DEFAULT_IN_PHI: PhiT = PhiT::LReLU6;
-    const DEFAULT_OUT_PHI: PhiT = PhiT::Tanh;
+    const DEFAULT_IN_PHI: PhiT = PhiT::LReLU;
+    const DEFAULT_IN_TY: LayerT = LayerT::Act(Network::<T>::DEFAULT_IN_PHI);
+    const DEFAULT_OUT_PHI: PhiT = PhiT::Id;
+    const DEFAULT_OUT_TY: LayerT = LayerT::Act(Network::<T>::DEFAULT_OUT_PHI);
+    const PI_TY: LayerT = LayerT::Pi;
+
+    pub fn update_sum(&mut self, pairs: &mut Vec<(Gradient, f32)>) {
+        let grad_count = pairs.len();
+        let total = Gradient::sum_pairs(pairs);
+        //TODO itertools used here, maybe remove dependency?
+        for (l, db, dw) in itertools::izip!(&mut self.layers, total.dbs, total.dws) {
+            l.b += db / (grad_count as f32);
+            l.w += dw / (grad_count as f32);
+        }
+    }
+
+    pub fn update(&mut self, grad: Gradient, r: f32) {
+        //TODO itertools used here, maybe remove dependency?
+        for (l, db, dw) in itertools::izip!(&mut self.layers, grad.dbs, grad.dws) {
+            l.b += r * db;
+            l.w += r * dw;
+        }
+    }
 
     pub fn z(&self) -> Vec<f32> {
         let i = self.layers.len() - 1;
@@ -51,25 +75,30 @@ impl<T: InputType> Network<T> {
 
     pub fn phi_z(&self) -> Vec<f32> {
         let i = self.layers.len() - 1;
-        self.layers[i].z.map(&self.layers[i].ty.phi()).data.as_vec().to_vec()
-    }
-
-    // last layer uses pi(phi(z))
-    // so dpi/dz = dpi/dphi * dphi/dz
-    pub fn pi(&self) -> Vec<f32> {
-        let i: usize = self.layers.len() - 1;
-        safesoftmax(self.layers[i].z.map(&PhiT::phi(&self.layers[i].ty)).data.as_vec())
+        self.layers[i].phi().data.as_vec().to_vec()
     }
 
     pub fn new(input_dim: usize, node_counts: Vec<usize>) -> Self {
         let mut layers: Vec<Layer> = Vec::with_capacity(node_counts.len());
         let mut j = input_dim;
         for (nth, &i) in node_counts.iter().enumerate() {
-            layers.push(Layer::new(i, j, nth, Network::<T>::DEFAULT_IN_PHI));
+            layers.push(Layer::new(i, j, nth, Network::<T>::DEFAULT_IN_TY));
             j = i;
         }
 
-        layers[node_counts.len() - 1].ty = Network::<T>::DEFAULT_OUT_PHI;
+        layers[node_counts.len() - 1].ty = Network::<T>::DEFAULT_OUT_TY;
+        Network { input_dim, node_counts, layers, phantom: PhantomData }
+    }
+
+    pub fn new_pi_net(input_dim: usize, node_counts: Vec<usize>) -> Self {
+        let mut layers: Vec<Layer> = Vec::with_capacity(node_counts.len());
+        let mut j = input_dim;
+        for (nth, &i) in node_counts.iter().enumerate() {
+            layers.push(Layer::new(i, j, nth, Network::<T>::DEFAULT_IN_TY));
+            j = i;
+        }
+
+        layers[node_counts.len() - 1].ty = Network::<T>::PI_TY;
         Network { input_dim, node_counts, layers, phantom: PhantomData }
     }
 
@@ -82,31 +111,132 @@ impl<T: InputType> Network<T> {
         }
     }
 
-    pub fn backward_prop(&mut self, input: &impl InputType) -> Gradient {
+    pub fn backward_prop(&mut self, input: &impl InputType, target: DVector<f32>, r: f32) -> Gradient {
         let input_vector = input.to_vector();
+        //z = w*phi(z') + b
+        //a = phi(z)
+
         // dphi/da
-        let mut dphida = self.layers[self.layers.len() - 1].dphi();
+        self.forward_prop(input);
+        let mut dphida = r.abs() * (DVector::from(self.phi_z()) - target); //TODO //output_deltas
+
         let mut grad = Gradient::new();
         for layer in self.layers.iter().rev() {
-            // dphi/dz = dphi/da * da/dz
-            let dphidz = dphida.component_mul(&dphida);
-            grad.dbs.push(dphidz);
+            //  dphi_n/dz_k    = dphi_n/da_k     * da_k/dz_k
+            let dphidz = dphida.component_mul(&layer.dphi());
+            //let dphidz = dphida.component_mul(&layer.dphi()); //TODO
 
-            // dz/dw
+            // dz/dw           = a_{k-1}
             let dzdw = match layer.index {
                 0 => input_vector.clone(),
-                _ => self.layers[layer.index - 1].phi(),
+                _ => self.layers[layer.index - 1].phi(), //TODO
             };
 
-            grad.dws.push(&grad.dbs[grad.dbs.len() - 1] * dzdw.transpose());
-            dphida = layer.w.tr_mul(&grad.dbs[grad.dbs.len() - 1]);
+            // we do this first so we can borrow dphidz here.. otherwise it makes more sense to do it at the end of the loop.
+            // dphi_n/da_{k-1} = dphi_n/da_k     * da/dz   * dz/da_{k-1}
+            dphida = layer.w.tr_mul(&dphidz);
+
+            // dN/dw           = dphi_n/da_k     * da/dz   * dz/dw
+            //                 = dphi_n/da_k     * dphi(z) * a
+            grad.dws.push(&dphidz * dzdw.transpose());
+
+            // dN/db           = dphi_n/da_k     * da/dz   * dz/db
+            //                 = dphi_n/da_k     * dphi(z) * 1
+            grad.dbs.push(dphidz.clone());
         }
 
         grad.dbs.reverse();
         grad.dws.reverse();
         for (db, dw) in grad.dbs.iter().zip(&grad.dws) {
-            grad.dbs_shape.push(db.len());
             grad.dws_shape.push(dw.shape());
+            grad.dbs_shape.push(db.len());
+        }
+
+        return grad;
+    }
+
+    pub fn dumb_backward_prop(&mut self, input: &impl InputType, target: DVector<f32>, r: f32) {
+        let input_vector = input.to_vector();
+        //z = w*phi(z') + b
+        //a = phi(z)
+
+        // dphi/da
+        //self.forward_prop(input);
+        //output_deltas
+
+        self.forward_prop(input);
+        let output_deltas = (DVector::from(self.phi_z()) - target) * r.abs();
+        let mut hidden_deltas = DVector::from_element(self.node_counts[0], 0.0f32);
+
+        // Backpropagate error to hidden layer.
+        for i in 0..self.node_counts[0] {
+            let mut error: f32 = 0.0;
+            for j in 0..self.node_counts[1] {
+                error += output_deltas[j] * self.layers[1].w[i * self.node_counts[1] + j];
+            }
+            hidden_deltas[i] = error * self.layers[0].dphi()[i];
+        }
+
+        /* === STEP 2: Weights updating === */
+
+        // Output layer weights and biases.
+        for i in 0..self.node_counts[0] {
+            for j in 0..self.node_counts[1] {
+                self.layers[1].w[i * self.node_counts[1] + j] -= 0.1 * output_deltas[j] * self.layers[0].phi()[i];
+            }
+        }
+        for j in 0..self.node_counts[1] {
+            self.layers[1].b[j] -= 0.1 * output_deltas[j];
+        }
+
+        // Hidden layer weights and biases.
+        for i in 0..self.input_dim {
+            for j in 0..self.node_counts[0] {
+                self.layers[0].w[i * self.node_counts[0] + j] -= 0.1 * hidden_deltas[j] * input_vector[i];
+            }
+        }
+        for j in 0..self.node_counts[0] {
+            self.layers[0].b[j] -= 0.1 * hidden_deltas[j];
+        }
+    }
+
+    pub fn _backward_prop(&mut self, input: &impl InputType) -> Gradient {
+        let input_vector = input.to_vector();
+        //z = w*phi(z') + b
+        //a = phi(z)
+
+        // dphi/da
+        self.forward_prop(input);
+        let mut dphida = self.layers[self.layers.len() - 1].phi();
+        let mut grad = Gradient::new();
+        for layer in self.layers.iter().rev() {
+            //  dphi/dz        = dphi_n/da_k     * da/dz
+            let dphidz = dphida.component_mul(&layer.dphi());
+
+            // dz/dw           = a_{k-1}
+            let dzdw = match layer.index {
+                0 => input_vector.clone(),
+                _ => self.layers[layer.index - 1].phi(),
+            };
+
+            // we do this first so we can borrow dphidz here.. otherwise it makes more sense to do it at the end of the loop.
+            // dphi_n/da_{k-1} = dphi_n/da_k     * da/dz   * dz/da_{k-1}
+            dphida = layer.w.tr_mul(&dphidz);
+
+            // dN/dw           = dphi_n/da_k     * da/dz   * dz/dw
+            //                 = dphi_n/da_k     * dphi(z) * a
+            grad.dws.push(&dphidz * dzdw.transpose());
+
+            // dN/db           = dphi_n/da_k     * da/dz   * dz/db
+            //                 = dphi_n/da_k     * dphi(z) * 1
+            grad.dbs.push(dphidz);
+        }
+
+        grad.dbs.reverse();
+        grad.dws.reverse();
+        for (db, dw) in grad.dbs.iter().zip(&grad.dws) {
+            grad.dws_shape.push(dw.shape());
+            grad.dbs_shape.push(db.len());
         }
 
         return grad;
@@ -114,11 +244,11 @@ impl<T: InputType> Network<T> {
 }
 
 impl Layer {
-    pub fn new(i: usize, j: usize, index: usize, phi: PhiT) -> Self {
-        let w = DMatrix::new_random(i, j);
-        let b = DVector::new_random(i);
+    pub fn new(i: usize, j: usize, index: usize, ty: LayerT) -> Self {
+        let w = DMatrix::new_random(i, j) - DMatrix::from_element(i, j, -0.5);
+        let b = DVector::new_random(i) - DVector::from_element(i, -0.5);
         let z = DVector::zeros(i);
-        Layer { w, b, z, index, ty: phi }
+        Layer { w, b, z, index, ty }
     }
 
     pub fn compute_z(&mut self, prev_phiz: &DVector<f32>) {
@@ -126,10 +256,30 @@ impl Layer {
     }
 
     pub fn phi(&self) -> DVector<f32> {
-        self.z.map(self.ty.phi())
+        match &self.ty {
+            LayerT::Pi => Layer::safesoftmax_vector(&self.z),
+            LayerT::Act(phi_t) => self.z.map(phi_t.phi()),
+        }
     }
 
     pub fn dphi(&self) -> DVector<f32> {
-        self.z.map(self.ty.dphi())
+        match &self.ty {
+            LayerT::Pi => self.z.clone(), //TODO might need to fix this
+            LayerT::Act(phi_t) => self.z.map(phi_t.dphi()),
+        }
+    }
+
+    fn safesoftmax_vector(xs: &DVector<f32>) -> DVector<f32> {
+        let mut total: f32 = 0.0;
+        let mut output_vec: Vec<f32> = Vec::with_capacity(xs.len());
+        let max_x = xs.iter().max_by(|&a, &b| a.total_cmp(&b)).unwrap();
+
+        for &x in xs {
+            let val: f32 = (x - max_x).exp();
+            total += val;
+            output_vec.push(val);
+        }
+
+        DVector::from_vec(output_vec.iter().map(|x: &f32| x / total).collect::<Vec<f32>>())
     }
 }

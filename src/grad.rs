@@ -7,10 +7,10 @@ use crate::Network;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Gradient {
-    pub dbs: Vec<DVector<f32>>,
     pub dws: Vec<DMatrix<f32>>,
-    pub dbs_shape: Vec<usize>,
+    pub dbs: Vec<DVector<f32>>,
     pub dws_shape: Vec<(usize, usize)>,
+    pub dbs_shape: Vec<usize>,
 }
 
 impl Gradient {
@@ -29,12 +29,30 @@ impl Gradient {
         return grad;
     }
 
+    pub fn sum_pairs(pairs: &mut Vec<(Gradient, f32)>) -> Gradient {
+        let (mut grad, r) = pairs.pop().unwrap();
+        grad.scalar_mul(&r);
+        let mut sum: Gradient = grad;
+        for (grad, r) in pairs.iter_mut() {
+            grad.scalar_mul(&r);
+            sum = sum + grad.clone();
+        }
+        return sum;
+    }
+
     pub fn sum(grads: &mut Vec<Gradient>) -> Gradient {
         let mut sum: Gradient = grads.pop().unwrap();
         for grad in grads.iter() {
             sum = sum + grad;
         }
         return sum;
+    }
+
+    pub fn scalar_mul(&mut self, r: &f32) {
+        for i in 0..self.dbs.len() {
+            self.dws[i] *= *r;
+            self.dbs[i] *= *r;
+        }
     }
 }
 
@@ -64,3 +82,16 @@ impl std::ops::Add<&Gradient> for Gradient {
         return self + rhs.clone();
     }
 }
+
+//impl std::ops::Mul<&mut Gradient> for f32 {
+//    type Output = Gradient;
+//
+//    fn mul(self, rhs: &mut Gradient) -> Self::Output {
+//        let mut rhs = rhs.clone();
+//        rhs.dws.iter_mut().zip(rhs.dbs.iter_mut()).map(|(dw, db)| {
+//            *dw *= self;
+//            *db *= self;
+//        });
+//        rhs
+//    }
+//}
