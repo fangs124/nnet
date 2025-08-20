@@ -143,18 +143,21 @@ impl<T: InputType> Network<T> {
 
         // dphi/da
         self.forward_prop_vector(input.clone());
-        let mut dphida = r.abs() * (DVector::from(self.phi_z()) - target); //TODO //output_deltas
+        let mut dphida = r.abs() * (DVector::from(self.phi_z()) - target);
 
         let mut grad = Gradient::new();
         for layer in self.layers.iter().rev() {
             //  dphi_n/dz_k    = dphi_n/da_k     * da_k/dz_k
             let dphidz = dphida.component_mul(&layer.dphi());
-            //let dphidz = dphida.component_mul(&layer.dphi()); //TODO
+            //let dphidz = match layer.ty {
+            //    LayerT::Pi => layer.dphi() * dphida,
+            //    LayerT::Act(_) => dphida.component_mul(&layer.dphi()),
+            //};
 
             // dz/dw           = a_{k-1}
             let dzdw = match layer.index {
                 0 => input.clone(),
-                _ => self.layers[layer.index - 1].phi(), //TODO
+                _ => self.layers[layer.index - 1].phi(),
             };
 
             // we do this first so we can borrow dphidz here.. otherwise it makes more sense to do it at the end of the loop.
@@ -225,47 +228,50 @@ impl<T: InputType> Network<T> {
         }
     }
 
-    pub fn _backward_prop(&mut self, input: &impl InputType) -> Gradient {
-        let input_vector = input.to_vector();
-        //z = w*phi(z') + b
-        //a = phi(z)
-
-        // dphi/da
-        self.forward_prop(input);
-        let mut dphida = self.layers[self.layers.len() - 1].phi();
-        let mut grad = Gradient::new();
-        for layer in self.layers.iter().rev() {
-            //  dphi/dz        = dphi_n/da_k     * da/dz
-            let dphidz = dphida.component_mul(&layer.dphi());
-
-            // dz/dw           = a_{k-1}
-            let dzdw = match layer.index {
-                0 => input_vector.clone(),
-                _ => self.layers[layer.index - 1].phi(),
-            };
-
-            // we do this first so we can borrow dphidz here.. otherwise it makes more sense to do it at the end of the loop.
-            // dphi_n/da_{k-1} = dphi_n/da_k     * da/dz   * dz/da_{k-1}
-            dphida = layer.w.tr_mul(&dphidz);
-
-            // dN/dw           = dphi_n/da_k     * da/dz   * dz/dw
-            //                 = dphi_n/da_k     * dphi(z) * a
-            grad.dws.push(&dphidz * dzdw.transpose());
-
-            // dN/db           = dphi_n/da_k     * da/dz   * dz/db
-            //                 = dphi_n/da_k     * dphi(z) * 1
-            grad.dbs.push(dphidz);
-        }
-
-        grad.dbs.reverse();
-        grad.dws.reverse();
-        for (db, dw) in grad.dbs.iter().zip(&grad.dws) {
-            grad.dws_shape.push(dw.shape());
-            grad.dbs_shape.push(db.len());
-        }
-
-        return grad;
-    }
+    //pub fn _backward_prop(&mut self, input: &impl InputType) -> Gradient {
+    //    let input_vector = input.to_vector();
+    //    //z = w*phi(z') + b
+    //    //a = phi(z)
+    //
+    //    // dphi/da
+    //    self.forward_prop(input);
+    //    let mut dphida = self.layers[self.layers.len() - 1].phi();
+    //    let mut grad = Gradient::new();
+    //    for layer in self.layers.iter().rev() {
+    //        //  dphi/dz        = dphi_n/da_k     * da/dz
+    //        let dphidz = match layer.ty {
+    //            LayerT::Pi => layer.dphi() * dphida,
+    //            LayerT::Act(_) => dphida.component_mul(&layer.dphi()),
+    //        };
+    //
+    //        // dz/dw           = a_{k-1}
+    //        let dzdw = match layer.index {
+    //            0 => input_vector.clone(),
+    //            _ => self.layers[layer.index - 1].phi(),
+    //        };
+    //
+    //        // we do this first so we can borrow dphidz here.. otherwise it makes more sense to do it at the end of the loop.
+    //        // dphi_n/da_{k-1} = dphi_n/da_k     * da/dz   * dz/da_{k-1}
+    //        dphida = layer.w.tr_mul(&dphidz);
+    //
+    //        // dN/dw           = dphi_n/da_k     * da/dz   * dz/dw
+    //        //                 = dphi_n/da_k     * dphi(z) * a
+    //        grad.dws.push(&dphidz * dzdw.transpose());
+    //
+    //        // dN/db           = dphi_n/da_k     * da/dz   * dz/db
+    //        //                 = dphi_n/da_k     * dphi(z) * 1
+    //        grad.dbs.push(dphidz);
+    //    }
+    //
+    //    grad.dbs.reverse();
+    //    grad.dws.reverse();
+    //    for (db, dw) in grad.dbs.iter().zip(&grad.dws) {
+    //        grad.dws_shape.push(dw.shape());
+    //        grad.dbs_shape.push(db.len());
+    //    }
+    //
+    //    return grad;
+    //}
 }
 
 impl Layer {
@@ -297,6 +303,25 @@ impl Layer {
             LayerT::Act(phi_t) => self.z.map(phi_t.dphi()),
         }
     }
+
+    //pub fn dphi(&self) -> DMatrix<f32> {
+    //    let d = self.z.len();
+    //    match &self.ty {
+    //        LayerT::Pi => {
+    //            let phi_z = self.phi();
+    //            let mut dphi_z: DMatrix<f32> = DMatrix::from_element(d, d, 0.0);
+    //            for r in 0..d {
+    //                dphi_z[(r, r)] = phi_z[r] * (1.0 - phi_z[r]);
+    //                for c in (r + 1)..d {
+    //                    dphi_z[(r, c)] = -phi_z[r] * phi_z[c];
+    //                    dphi_z[(c, r)] = -phi_z[c] * phi_z[r];
+    //                }
+    //            }
+    //            return dphi_z;
+    //        } //TODO might need to fix this
+    //        LayerT::Act(phi_t) => DMatrix::from_vec(d, 1, self.z.map(phi_t.dphi()).data.as_vec().clone()),
+    //    }
+    //}
 
     fn safesoftmax_vector(xs: &DVector<f32>) -> DVector<f32> {
         let mut total: f32 = 0.0;
