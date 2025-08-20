@@ -50,15 +50,15 @@ impl<T: InputType> Network<T> {
     const DEFAULT_OUT_TY: LayerT = LayerT::Act(Network::<T>::DEFAULT_OUT_PHI);
     const PI_TY: LayerT = LayerT::Pi;
 
-    pub fn update_sum(&mut self, pairs: &mut Vec<(Gradient, f32)>) {
-        let grad_count = pairs.len();
-        let total = Gradient::sum_pairs(pairs);
-        //TODO itertools used here, maybe remove dependency?
-        for (l, db, dw) in itertools::izip!(&mut self.layers, total.dbs, total.dws) {
-            l.b += db / (grad_count as f32);
-            l.w += dw / (grad_count as f32);
-        }
-    }
+    //pub fn update_sum(&mut self, pairs: &mut Vec<(Gradient, f32)>) {
+    //    let grad_count = pairs.len();
+    //    let total = Gradient::sum_pairs(pairs);
+    //    //TODO itertools used here, maybe remove dependency?
+    //    for (l, db, dw) in itertools::izip!(&mut self.layers, total.dbs, total.dws) {
+    //        l.b += db / (grad_count as f32);
+    //        l.w += dw / (grad_count as f32);
+    //    }
+    //}
 
     pub fn update(&mut self, grad: Gradient, r: f32) {
         //TODO itertools used here, maybe remove dependency?
