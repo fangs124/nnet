@@ -49,7 +49,7 @@ impl<T: InputType> Network<T> {
     const DEFAULT_OUT_PHI: PhiT = PhiT::Tanh;
     const DEFAULT_OUT_TY: LayerT = LayerT::Act(Network::<T>::DEFAULT_OUT_PHI);
     const PI_TY: LayerT = LayerT::Pi;
-
+    const REGULARIZATION: f32 = 0.1;
     //pub fn update_sum(&mut self, pairs: &mut Vec<(Gradient, f32)>) {
     //    let grad_count = pairs.len();
     //    let total = Gradient::sum_pairs(pairs);
@@ -168,9 +168,12 @@ impl<T: InputType> Network<T> {
             //                 = dphi_n/da_k     * dphi(z) * a
             grad.dws.push(&dphidz * dzdw.transpose());
 
+            // regularization
+            //grad.dws.push(&dphidz * dzdw.transpose() - Network::<T>::REGULARIZATION * layer.w.clone());
+
             // dN/db           = dphi_n/da_k     * da/dz   * dz/db
             //                 = dphi_n/da_k     * dphi(z) * 1
-            grad.dbs.push(dphidz.clone());
+            grad.dbs.push(dphidz);
         }
 
         grad.dbs.reverse();
