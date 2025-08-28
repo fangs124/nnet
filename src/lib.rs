@@ -44,12 +44,12 @@ impl<T: InputType> Network<T> {
     //const TRESHOLD: f32 = 0.0005;
     //const DEFAULT_ALPHA: f32 = 0.5;
     //const DEFAULT_GAMMA: f32 = 0.90;
+    const REG_COEFF: f32 = 0.01;
     const DEFAULT_IN_PHI: PhiT = PhiT::LReLU;
     const DEFAULT_IN_TY: LayerT = LayerT::Act(Network::<T>::DEFAULT_IN_PHI);
     const DEFAULT_OUT_PHI: PhiT = PhiT::Tanh;
     const DEFAULT_OUT_TY: LayerT = LayerT::Act(Network::<T>::DEFAULT_OUT_PHI);
     const PI_TY: LayerT = LayerT::Pi;
-    const REGULARIZATION: f32 = 0.1;
     //pub fn update_sum(&mut self, pairs: &mut Vec<(Gradient, f32)>) {
     //    let grad_count = pairs.len();
     //    let total = Gradient::sum_pairs(pairs);
@@ -166,10 +166,10 @@ impl<T: InputType> Network<T> {
 
             // dN/dw           = dphi_n/da_k     * da/dz   * dz/dw
             //                 = dphi_n/da_k     * dphi(z) * a
-            grad.dws.push(&dphidz * dzdw.transpose());
+            //grad.dws.push(&dphidz * dzdw.transpose());
 
             // regularization
-            //grad.dws.push(&dphidz * dzdw.transpose() - Network::<T>::REGULARIZATION * layer.w.clone());
+            grad.dws.push(&dphidz * dzdw.transpose() - Network::<T>::REG_COEFF * layer.w.clone());
 
             // dN/db           = dphi_n/da_k     * da/dz   * dz/db
             //                 = dphi_n/da_k     * dphi(z) * 1
