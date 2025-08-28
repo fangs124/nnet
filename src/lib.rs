@@ -166,10 +166,10 @@ impl<T: InputType> Network<T> {
 
             // dN/dw           = dphi_n/da_k     * da/dz   * dz/dw
             //                 = dphi_n/da_k     * dphi(z) * a
-            //grad.dws.push(&dphidz * dzdw.transpose());
+            grad.dws.push(&dphidz * dzdw.transpose());
 
             // regularization
-            grad.dws.push(&dphidz * dzdw.transpose() - Network::<T>::REG_COEFF * layer.w.clone());
+            //grad.dws.push(&dphidz * dzdw.transpose() - Network::<T>::REG_COEFF * layer.w.clone());
 
             // dN/db           = dphi_n/da_k     * da/dz   * dz/db
             //                 = dphi_n/da_k     * dphi(z) * 1
