@@ -173,7 +173,7 @@ impl<T: InputType> Network<T> {
 
             // dN/db           = dphi_n/da_k     * da/dz   * dz/db
             //                 = dphi_n/da_k     * dphi(z) * 1
-            grad.dbs.push(dphidz);
+            grad.dbs.push(dphidz.clone());
         }
 
         grad.dbs.reverse();
