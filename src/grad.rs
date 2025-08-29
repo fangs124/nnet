@@ -82,16 +82,3 @@ impl std::ops::Add<&Gradient> for Gradient {
         return self + rhs.clone();
     }
 }
-
-//impl std::ops::Mul<&mut Gradient> for f32 {
-//    type Output = Gradient;
-//
-//    fn mul(self, rhs: &mut Gradient) -> Self::Output {
-//        let mut rhs = rhs.clone();
-//        rhs.dws.iter_mut().zip(rhs.dbs.iter_mut()).map(|(dw, db)| {
-//            *dw *= self;
-//            *db *= self;
-//        });
-//        rhs
-//    }
-//}
