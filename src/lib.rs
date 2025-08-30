@@ -169,7 +169,10 @@ impl<T: InputType> Network<T> {
             grad.dws.push(&dphidz * dzdw.transpose());
 
             // regularization
-            //grad.dws.push(&dphidz * dzdw.transpose() - Network::<T>::REG_COEFF * layer.w.clone());
+            //match is_reg {
+            //    true => grad.dws.push(&dphidz * dzdw.transpose() - Network::<T>::REG_COEFF * layer.w.clone()),
+            //    false => grad.dws.push(&dphidz * dzdw.transpose()),
+            //}
 
             // dN/db           = dphi_n/da_k     * da/dz   * dz/db
             //                 = dphi_n/da_k     * dphi(z) * 1
