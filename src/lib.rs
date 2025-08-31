@@ -40,6 +40,9 @@ pub trait InputType {
     fn to_vector(&self) -> DVector<f32>;
 }
 
+pub trait SparseInputType {
+    fn to_vector(&self) -> Vec<usize>;
+}
 
 impl<T: InputType> Network<T> {
     //const TRESHOLD: f32 = 0.0005;
@@ -121,6 +124,27 @@ impl<T: InputType> Network<T> {
         }
     }
 
+    #[inline(always)]
+    pub fn forward_prop_sparse(&mut self, input: &impl InputType) {
+        self.forward_prop_vector(input.to_vector());
+    }
+
+    pub fn forward_prop_sparse_vector(&mut self, input: Vec<usize>) {
+        let mut layers = self.layers.iter_mut();
+        let first_layer = layers.next().unwrap();
+        let d = first_layer.z.len();
+        let mut sum = DVector::from_element(d, 0.0);
+        for index in input {
+            sum += first_layer.w.column(index)
+        }
+        first_layer.z = sum;
+        let mut prev_phiz = first_layer.phi();
+        for layer in layers {
+            layer.compute_z(&prev_phiz);
+            prev_phiz = layer.phi();
+        }
+    }
+
     //#[inline(always)]
     //pub fn forward_prop_phi_mutless(&self, input: &impl InputType) -> Vec<f32> {
     //    let mut prev_phiz = input.to_vector();
@@ -158,6 +182,69 @@ impl<T: InputType> Network<T> {
             // dz/dw           = a_{k-1}
             let dzdw = match layer.index {
                 0 => input.clone(),
+                _ => self.layers[layer.index - 1].phi(),
+            };
+
+            // we do this first so we can borrow dphidz here.. otherwise it makes more sense to do it at the end of the loop.
+            // dphi_n/da_{k-1} = dphi_n/da_k     * da/dz   * dz/da_{k-1}
+            dphida = layer.w.tr_mul(&dphidz);
+
+            // dN/dw           = dphi_n/da_k     * da/dz   * dz/dw
+            //                 = dphi_n/da_k     * dphi(z) * a
+            grad.dws.push(&dphidz * dzdw.transpose());
+
+            // regularization
+            //match is_reg {
+            //    true => grad.dws.push(&dphidz * dzdw.transpose() - Network::<T>::REG_COEFF * layer.w.clone()),
+            //    false => grad.dws.push(&dphidz * dzdw.transpose()),
+            //}
+
+            // dN/db           = dphi_n/da_k     * da/dz   * dz/db
+            //                 = dphi_n/da_k     * dphi(z) * 1
+            grad.dbs.push(dphidz.clone());
+        }
+
+        grad.dbs.reverse();
+        grad.dws.reverse();
+        for (db, dw) in grad.dbs.iter().zip(&grad.dws) {
+            grad.dws_shape.push(dw.shape());
+            grad.dbs_shape.push(db.len());
+        }
+
+        return grad;
+    }
+
+    #[inline(always)]
+    pub fn backward_prop_sparse(&mut self, input: &impl SparseInputType, target: DVector<f32>, r: f32) -> Gradient {
+        return self.backward_prop_sparse_vector(input.to_vector(), target, r);
+    }
+    pub fn backward_prop_sparse_vector(&mut self, input: Vec<usize>, target: DVector<f32>, r: f32) -> Gradient {
+        //z = w*phi(z') + b
+        //a = phi(z)
+
+        // dphi/da
+        self.forward_prop_sparse_vector(input.clone());
+        let mut dphida = r.abs() * (DVector::from(self.phi_z()) - target);
+
+        //convert to sparse vector
+        let d = self.input_dim;
+        let mut input_vector = DVector::from_element(d, 0.0);
+        for index in input {
+            input_vector[index] = 1.0;
+        }
+        let mut grad = Gradient::new();
+
+        for layer in self.layers.iter().rev() {
+            //  dphi_n/dz_k    = dphi_n/da_k     * da_k/dz_k
+            let dphidz = dphida.component_mul(&layer.dphi());
+            //let dphidz = match layer.ty {
+            //    LayerT::Pi => layer.dphi() * dphida,
+            //    LayerT::Act(_) => dphida.component_mul(&layer.dphi()),
+            //};
+
+            // dz/dw           = a_{k-1}
+            let dzdw = match layer.index {
+                0 => input_vector.clone(),
                 _ => self.layers[layer.index - 1].phi(),
             };
 
