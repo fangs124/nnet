@@ -40,6 +40,7 @@ pub trait InputType {
     fn to_vector(&self) -> DVector<f32>;
 }
 
+
 impl<T: InputType> Network<T> {
     //const TRESHOLD: f32 = 0.0005;
     //const DEFAULT_ALPHA: f32 = 0.5;
