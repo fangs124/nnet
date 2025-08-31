@@ -41,7 +41,7 @@ pub trait InputType {
 }
 
 pub trait SparseInputType {
-    fn to_vector(&self) -> Vec<usize>;
+    fn to_sparse_vec(&self) -> Vec<usize>;
 }
 
 impl<T: InputType> Network<T> {
@@ -129,7 +129,7 @@ impl<T: InputType> Network<T> {
         self.forward_prop_vector(input.to_vector());
     }
 
-    pub fn forward_prop_sparse_vector(&mut self, input: Vec<usize>) {
+    pub fn forward_prop_sparse_vec(&mut self, input: Vec<usize>) {
         let mut layers = self.layers.iter_mut();
         let first_layer = layers.next().unwrap();
         let d = first_layer.z.len();
@@ -216,14 +216,14 @@ impl<T: InputType> Network<T> {
 
     #[inline(always)]
     pub fn backward_prop_sparse(&mut self, input: &impl SparseInputType, target: DVector<f32>, r: f32) -> Gradient {
-        return self.backward_prop_sparse_vector(input.to_vector(), target, r);
+        return self.backward_prop_sparse_vec(input.to_sparse_vec(), target, r);
     }
-    pub fn backward_prop_sparse_vector(&mut self, input: Vec<usize>, target: DVector<f32>, r: f32) -> Gradient {
+    pub fn backward_prop_sparse_vec(&mut self, input: Vec<usize>, target: DVector<f32>, r: f32) -> Gradient {
         //z = w*phi(z') + b
         //a = phi(z)
 
         // dphi/da
-        self.forward_prop_sparse_vector(input.clone());
+        self.forward_prop_sparse_vec(input.clone());
         let mut dphida = r.abs() * (DVector::from(self.phi_z()) - target);
 
         //convert to sparse vector
