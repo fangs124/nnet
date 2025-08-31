@@ -40,27 +40,8 @@ pub trait InputType {
     fn to_vector(&self) -> DVector<f32>;
 }
 
-pub trait SparseInputType<const D: usize> {
-    fn to_sparse_vec(&self) -> SparseVec<D>;
-}
-
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct SparseVec<const D: usize> {
-    pub data: [usize; D],
-    pub index: usize,
-}
-
-impl<const D: usize> SparseVec<D> {
-    #[inline(always)]
-    pub fn new() -> SparseVec<D> {
-        return SparseVec { data: [0; D], index: 0 };
-    }
-
-    #[inline(always)]
-    pub fn push(&mut self, x: usize) {
-        self.data[self.index] = x;
-        self.index += 1;
-    }
+pub trait SparseInputType {
+    fn to_sparse_vec(&self) -> Vec<usize>;
 }
 
 impl<T: InputType> Network<T> {
@@ -144,19 +125,17 @@ impl<T: InputType> Network<T> {
     }
 
     #[inline(always)]
-    pub fn forward_prop_sparse<const D: usize>(&mut self, input: &impl SparseInputType<D>) {
-        self.forward_prop_sparse_vec(input.to_sparse_vec());
+    pub fn forward_prop_sparse(&mut self, input: &impl InputType) {
+        self.forward_prop_vector(input.to_vector());
     }
 
-    pub fn forward_prop_sparse_vec<const D: usize>(&mut self, input: SparseVec<D>) {
+    pub fn forward_prop_sparse_vec(&mut self, input: Vec<usize>) {
         let mut layers = self.layers.iter_mut();
         let first_layer = layers.next().unwrap();
         let d = first_layer.z.len();
         let mut sum = DVector::from_element(d, 0.0);
-        let mut index: usize = 0;
-        while index < input.index {
-            sum += first_layer.w.column(index);
-            index += 1;
+        for index in input {
+            sum += first_layer.w.column(index)
         }
         first_layer.z = sum;
         let mut prev_phiz = first_layer.phi();
@@ -235,14 +214,11 @@ impl<T: InputType> Network<T> {
         return grad;
     }
 
-    #[rustfmt::skip]
     #[inline(always)]
-    pub fn backward_prop_sparse<const D: usize>(&mut self, input: &impl SparseInputType<D>, target: DVector<f32>, r: f32) -> Gradient {
+    pub fn backward_prop_sparse(&mut self, input: &impl SparseInputType, target: DVector<f32>, r: f32) -> Gradient {
         return self.backward_prop_sparse_vec(input.to_sparse_vec(), target, r);
     }
-
-    #[rustfmt::skip]
-    pub fn backward_prop_sparse_vec<const D: usize>(&mut self, input: SparseVec<D>, target: DVector<f32>, r: f32) -> Gradient {
+    pub fn backward_prop_sparse_vec(&mut self, input: Vec<usize>, target: DVector<f32>, r: f32) -> Gradient {
         //z = w*phi(z') + b
         //a = phi(z)
 
@@ -253,12 +229,9 @@ impl<T: InputType> Network<T> {
         //convert to sparse vector
         let d = self.input_dim;
         let mut input_vector = DVector::from_element(d, 0.0);
-        let mut index :usize = 0;
-        while index < input.index {
+        for index in input {
             input_vector[index] = 1.0;
-            index += 1;
         }
-
         let mut grad = Gradient::new();
 
         for layer in self.layers.iter().rev() {
