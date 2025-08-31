@@ -155,7 +155,7 @@ impl<T: InputType> Network<T> {
         let mut sum = DVector::from_element(d, 0.0);
         let mut index: usize = 0;
         while index < input.index {
-            sum += first_layer.w.column(index);
+            sum += first_layer.w.column(input.data[index]);
             index += 1;
         }
         first_layer.z = sum;
@@ -255,7 +255,7 @@ impl<T: InputType> Network<T> {
         let mut input_vector = DVector::from_element(d, 0.0);
         let mut index :usize = 0;
         while index < input.index {
-            input_vector[index] = 1.0;
+            input_vector[input.data[index]] = 1.0;
             index += 1;
         }
 
