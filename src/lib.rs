@@ -49,6 +49,16 @@ pub struct SparseVec {
     data: Vec<usize>,
 }
 
+impl IntoIterator for SparseVec {
+    type Item = usize;
+
+    type IntoIter = <Vec<usize> as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.data.into_iter()
+    }
+}
+
 impl SparseVec {
     pub fn new() -> Self {
         SparseVec { data: Vec::new() }
@@ -60,14 +70,6 @@ impl SparseVec {
 
     pub fn push(&mut self, value: usize) {
         self.data.push(value);
-    }
-}
-
-impl Iterator for SparseVec {
-    type Item = usize;
-    //TOD: check if this is the canonical implementation
-    fn next(&mut self) -> Option<Self::Item> {
-        self.data.iter().next().copied()
     }
 }
 
