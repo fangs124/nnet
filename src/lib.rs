@@ -6,6 +6,7 @@ mod phi;
 use std::marker::PhantomData;
 
 use na::base::{DMatrix, DVector};
+use rand_distr::Normal;
 use serde::{Deserialize, Serialize};
 
 pub use grad::Gradient;
@@ -78,7 +79,7 @@ impl<T: InputType> Network<T> {
     //const DEFAULT_ALPHA: f32 = 0.5;
     //const DEFAULT_GAMMA: f32 = 0.90;
     const REG_COEFF: f32 = 0.0001;
-    const DEFAULT_IN_PHI: PhiT = PhiT::LReLU6;
+    const DEFAULT_IN_PHI: PhiT = PhiT::CReLU;
     const DEFAULT_IN_TY: LayerT = LayerT::Act(Network::<T>::DEFAULT_IN_PHI);
     const DEFAULT_OUT_PHI: PhiT = PhiT::Tanh;
     const DEFAULT_OUT_TY: LayerT = LayerT::Act(Network::<T>::DEFAULT_OUT_PHI);
@@ -154,15 +155,14 @@ impl<T: InputType> Network<T> {
     }
 
     #[inline(always)]
-    pub fn forward_prop_sparse(&mut self, input: &impl InputType) {
-        self.forward_prop_vector(input.to_vector());
+    pub fn forward_prop_sparse(&mut self, input: &impl SparseInputType) {
+        self.forward_prop_sparse_vec(input.to_sparse_vec());
     }
 
     pub fn forward_prop_sparse_vec(&mut self, input: SparseVec) {
         let mut layers = self.layers.iter_mut();
         let first_layer = layers.next().unwrap();
-        let d = first_layer.z.len();
-        let mut sum = DVector::from_element(d, 0.0);
+        let mut sum = DVector::from_element(first_layer.z.len(), 0.0);
         for index in input {
             sum += first_layer.w.column(index)
         }
@@ -310,8 +310,9 @@ impl<T: InputType> Network<T> {
 
 impl Layer {
     pub fn new(i: usize, j: usize, index: usize, ty: LayerT) -> Self {
-        let w = DMatrix::new_random(i, j) - DMatrix::from_element(i, j, -0.5);
-        let b = DVector::new_random(i) - DVector::from_element(i, -0.5);
+        let he = Normal::new(0.0, f32::sqrt(2.0 / j as f32)).unwrap();
+        let w = DMatrix::from_distribution(i, j, &he, &mut rand::rng());
+        let b = DVector::new_random(i);
         let z = DVector::zeros(i);
         Layer { w, b, z, index, ty }
     }

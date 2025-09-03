@@ -7,6 +7,7 @@ pub enum PhiT {
     //ReLU6,
     LReLU,
     LReLU6,
+    CReLU,
     Tanh,
     Id,
     //SoftPlus,
@@ -23,6 +24,7 @@ impl PhiT {
             PhiT::ReLU => relu,
             PhiT::LReLU => lrelu,
             PhiT::LReLU6 => lrelu6,
+            PhiT::CReLU => crelu,
             PhiT::Tanh => tanh,
             PhiT::Id => id,
         }
@@ -34,6 +36,7 @@ impl PhiT {
             PhiT::ReLU => drelu,
             PhiT::LReLU => dlrelu,
             PhiT::LReLU6 => dlrelu6,
+            PhiT::CReLU => dcrelu,
             PhiT::Tanh => dtanh,
             PhiT::Id => did,
         }
@@ -72,6 +75,26 @@ fn dlrelu(x: f32) -> f32 {
     if x < 0.0 { 0.01 } else { 1.0 }
 }
 
+fn crelu(x: f32) -> f32 {
+    x.min(1.0).max(0.0)
+}
+fn dcrelu(x: f32) -> f32 {
+    if x < 0.0 {
+        0.00001
+    } else if x <= 1.0 {
+        1.0
+    } else {
+        0.00001
+    }
+}
+
+//fn screlu(x: f32) -> f32 {
+//    todo!();
+//}
+//fn dscrelu(x: f32) -> f32 {
+//    todo!();
+//}
+
 fn lrelu6(x: f32) -> f32 {
     if x < 0.0 {
         0.01 * x
@@ -92,12 +115,22 @@ fn dlrelu6(x: f32) -> f32 {
     }
 }
 
+//const SCALE_FACTOR: f32 = 10.0;
+//
+//fn tanh(x: f32) -> f32 {
+//    f32::tanh(x / SCALE_FACTOR)
+//}
+//
+//fn dtanh(x: f32) -> f32 {
+//    (tanh(x).mul_add(-tanh(x), 1.0)) / SCALE_FACTOR //sech^2(x)
+//}
+
 fn tanh(x: f32) -> f32 {
-    x.tanh()
+    f32::tanh(x)
 }
 
 fn dtanh(x: f32) -> f32 {
-    x.tanh().mul_add(-x.tanh(), 1.0) //sech^2(x)
+    tanh(x).mul_add(-tanh(x), 1.0) //sech^2(x)
 }
 
 pub fn safesoftmax(xs: &Vec<f32>) -> Vec<f32> {
