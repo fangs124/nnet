@@ -93,7 +93,7 @@ fn dlrelu6(x: f32) -> f32 {
 }
 
 fn tanh(x: f32) -> f32 {
-    x.tanh() + 1.0
+    x.tanh()
 }
 
 fn dtanh(x: f32) -> f32 {

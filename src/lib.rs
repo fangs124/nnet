@@ -18,7 +18,7 @@ pub struct Network<T> {
     pub input_dim: usize,
     pub node_counts: Vec<usize>,
     pub layers: Vec<Layer>,
-    phantom: PhantomData<T>,
+    _phantom: PhantomData<T>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -125,7 +125,7 @@ impl<T: InputType> Network<T> {
         }
 
         layers[node_counts.len() - 1].ty = Network::<T>::DEFAULT_OUT_TY;
-        Network { input_dim, node_counts, layers, phantom: PhantomData }
+        Network { input_dim, node_counts, layers, _phantom: PhantomData }
     }
 
     pub fn new_pi_net(input_dim: usize, node_counts: Vec<usize>) -> Self {
@@ -137,7 +137,7 @@ impl<T: InputType> Network<T> {
         }
 
         layers[node_counts.len() - 1].ty = Network::<T>::PI_TY;
-        Network { input_dim, node_counts, layers, phantom: PhantomData }
+        Network { input_dim, node_counts, layers, _phantom: PhantomData }
     }
 
     #[inline(always)]
