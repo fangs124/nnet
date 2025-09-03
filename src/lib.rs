@@ -77,8 +77,8 @@ impl<T: InputType> Network<T> {
     //const TRESHOLD: f32 = 0.0005;
     //const DEFAULT_ALPHA: f32 = 0.5;
     //const DEFAULT_GAMMA: f32 = 0.90;
-    const REG_COEFF: f32 = 0.01;
-    const DEFAULT_IN_PHI: PhiT = PhiT::LReLU;
+    const REG_COEFF: f32 = 0.0001;
+    const DEFAULT_IN_PHI: PhiT = PhiT::LReLU6;
     const DEFAULT_IN_TY: LayerT = LayerT::Act(Network::<T>::DEFAULT_IN_PHI);
     const DEFAULT_OUT_PHI: PhiT = PhiT::Tanh;
     const DEFAULT_OUT_TY: LayerT = LayerT::Act(Network::<T>::DEFAULT_OUT_PHI);
@@ -220,13 +220,13 @@ impl<T: InputType> Network<T> {
 
             // dN/dw           = dphi_n/da_k     * da/dz   * dz/dw
             //                 = dphi_n/da_k     * dphi(z) * a
-            grad.dws.push(&dphidz * dzdw.transpose());
 
-            // regularization
-            //match is_reg {
-            //    true => grad.dws.push(&dphidz * dzdw.transpose() - Network::<T>::REG_COEFF * layer.w.clone()),
-            //    false => grad.dws.push(&dphidz * dzdw.transpose()),
-            //}
+            //no L2 regularization
+            //grad.dws.push(&dphidz * dzdw.transpose());
+            //L2 regularization
+            let dw = &dphidz * dzdw.transpose();
+            let norm = dw.norm();
+            grad.dws.push(dw - (norm / 1000.0) * layer.w.clone());
 
             // dN/db           = dphi_n/da_k     * da/dz   * dz/db
             //                 = dphi_n/da_k     * dphi(z) * 1
@@ -284,13 +284,13 @@ impl<T: InputType> Network<T> {
 
             // dN/dw           = dphi_n/da_k     * da/dz   * dz/dw
             //                 = dphi_n/da_k     * dphi(z) * a
-            grad.dws.push(&dphidz * dzdw.transpose());
 
-            // regularization
-            //match is_reg {
-            //    true => grad.dws.push(&dphidz * dzdw.transpose() - Network::<T>::REG_COEFF * layer.w.clone()),
-            //    false => grad.dws.push(&dphidz * dzdw.transpose()),
-            //}
+            //no L2 regularization
+            //grad.dws.push(&dphidz * dzdw.transpose());
+            //L2 regularization
+            let dw = &dphidz * dzdw.transpose();
+            let norm = dw.norm();
+            grad.dws.push(dw - (norm / 1000.0) * layer.w.clone());
 
             // dN/db           = dphi_n/da_k     * da/dz   * dz/db
             //                 = dphi_n/da_k     * dphi(z) * 1
