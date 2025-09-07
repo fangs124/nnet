@@ -61,16 +61,16 @@ impl Add<Gradient> for Gradient {
 
     fn add(self, rhs: Gradient) -> Self::Output {
         assert!((self.dbs_shape == rhs.dbs_shape) && (self.dws_shape == rhs.dws_shape));
-        let mut Gradient = Gradient::new();
-        Gradient.dbs_shape = self.dbs_shape;
-        Gradient.dws_shape = self.dws_shape;
+        let mut grad = Gradient::new();
+        grad.dbs_shape = self.dbs_shape;
+        grad.dws_shape = self.dws_shape;
         for (db_l, db_r) in zip(self.dbs, rhs.dbs) {
-            Gradient.dbs.push(db_l + db_r);
+            grad.dbs.push(db_l + db_r);
         }
         for (dw_l, dw_r) in zip(self.dws, rhs.dws) {
-            Gradient.dws.push(dw_l + dw_r);
+            grad.dws.push(dw_l + dw_r);
         }
-        return Gradient;
+        return grad;
     }
 }
 
