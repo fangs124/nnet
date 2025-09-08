@@ -290,7 +290,7 @@ impl<T: InputType> Network<T> {
             //L2 regularization
             let dw = &dphidz * dzdw.transpose();
             let norm = dw.norm();
-            grad.dws.push(dw - (norm / 1000.0) * layer.w.clone());
+            grad.dws.push(dw - (norm / 500.0) * layer.w.clone());
 
             // dN/db           = dphi_n/da_k     * da/dz   * dz/db
             //                 = dphi_n/da_k     * dphi(z) * 1
