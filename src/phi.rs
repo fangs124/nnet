@@ -130,7 +130,7 @@ fn tanh(x: f32) -> f32 {
 }
 
 fn dtanh(x: f32) -> f32 {
-    tanh(x).mul_add(-tanh(x), 1.0) //sech^2(x)
+    f32::tanh(x).mul_add(-f32::tanh(x), 1.0) //sech^2(x)
 }
 
 pub fn safesoftmax(xs: &Vec<f32>) -> Vec<f32> {

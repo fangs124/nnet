@@ -6,7 +6,7 @@ mod phi;
 use std::marker::PhantomData;
 
 use na::base::{DMatrix, DVector};
-use rand_distr::Normal;
+use rand_distr::{Normal, Uniform};
 use serde::{Deserialize, Serialize};
 
 pub use grad::Gradient;
@@ -310,8 +310,14 @@ impl<T: InputType> Network<T> {
 
 impl Layer {
     pub fn new(i: usize, j: usize, index: usize, ty: LayerT) -> Self {
-        let he = Normal::new(0.0, f32::sqrt(2.0 / j as f32)).unwrap();
-        let w = DMatrix::from_distribution(i, j, &he, &mut rand::rng());
+        let he: Normal<f32> = Normal::new(0.0, f32::sqrt(2.0 / j as f32)).unwrap();
+        let glorot: Uniform<f32> = Uniform::new(-f32::sqrt(6.0 / ((i + j) as f32)), f32::sqrt(6.0 / ((i + j) as f32))).unwrap();
+        let w: na::Matrix<f32, na::Dyn, na::Dyn, na::VecStorage<f32, na::Dyn, na::Dyn>> = match &ty {
+            //LayerT::Pi => DMatrix::from_distribution(i, j, &he, &mut rand::rng()),
+            LayerT::Act(PhiT::Tanh) => DMatrix::from_distribution(i, j, &glorot, &mut rand::rng()),
+            //LayerT::Act(_phi_t) => DMatrix::from_distribution(i, j, &he, &mut rand::rng()),
+            _ => DMatrix::from_distribution(i, j, &he, &mut rand::rng()),
+        };
         let b = DVector::new_random(i);
         let z = DVector::zeros(i);
         Layer { w, b, z, index, ty }
