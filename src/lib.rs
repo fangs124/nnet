@@ -257,13 +257,12 @@ impl<T: InputType> Network<T> {
         let mut dphida = r.abs() * (DVector::from(self.phi_z()) - target);
 
         //convert to sparse vector
-        let d = self.input_dim;
-        let mut input_vector = DVector::from_element(d, 0.0);
+        let mut input_vector = DVector::from_element(self.input_dim, 0.0);
         for index in input {
             input_vector[index] = 1.0;
         }
-        let mut grad = Gradient::new();
 
+        let mut grad = Gradient::new();
         for layer in self.layers.iter().rev() {
             //  dphi_n/dz_k    = dphi_n/da_k     * da_k/dz_k
             let dphidz = dphida.component_mul(&layer.dphi());
@@ -290,7 +289,7 @@ impl<T: InputType> Network<T> {
             //L2 regularization
             let dw = &dphidz * dzdw.transpose();
             let norm = dw.norm();
-            grad.dws.push(dw - (norm / 500.0) * layer.w.clone());
+            grad.dws.push(dw - (norm / 1000.0) * layer.w.clone());
 
             // dN/db           = dphi_n/da_k     * da/dz   * dz/db
             //                 = dphi_n/da_k     * dphi(z) * 1
@@ -318,7 +317,7 @@ impl Layer {
             //LayerT::Act(_phi_t) => DMatrix::from_distribution(i, j, &he, &mut rand::rng()),
             _ => DMatrix::from_distribution(i, j, &he, &mut rand::rng()),
         };
-        let b = DVector::new_random(i);
+        let b = DVector::zeros(i);
         let z = DVector::zeros(i);
         Layer { w, b, z, index, ty }
     }
