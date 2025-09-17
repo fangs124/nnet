@@ -1,4 +1,7 @@
-use std::{iter::zip, ops::Add};
+use std::{
+    iter::zip,
+    ops::{Add, Mul},
+};
 
 use nalgebra::{DMatrix, DVector};
 use serde::{Deserialize, Serialize};
@@ -18,13 +21,23 @@ impl Gradient {
         Gradient { dbs: Vec::new(), dbs_shape: Vec::new(), dws: Vec::new(), dws_shape: Vec::new() }
     }
 
-    pub fn zero<T>(net: &Network<T>) -> Self {
+    pub fn zero<T>(net: &Network<T>) -> Gradient {
         let mut grad = Gradient::new();
         for layer in &net.layers {
             grad.dbs.push(DVector::zeros(layer.b.nrows()));
             grad.dbs_shape.push(layer.b.nrows());
             grad.dws.push(DMatrix::zeros(layer.w.nrows(), layer.w.ncols()));
             grad.dws_shape.push((layer.w.nrows(), layer.w.ncols()));
+        }
+        return grad;
+    }
+
+    pub fn component_square(&self) -> Gradient {
+        assert!(self.dws.len() == self.dbs.len());
+        let mut grad: Gradient = self.clone();
+        for i in 0..self.dws.len() {
+            grad.dws[i] = self.dws[i].component_mul(&self.dws[i]);
+            grad.dbs[i] = self.dbs[i].component_mul(&self.dbs[i]);
         }
         return grad;
     }
@@ -75,10 +88,39 @@ impl Add<Gradient> for Gradient {
 }
 
 //FIXME
-impl std::ops::Add<&Gradient> for Gradient {
+impl Add<&Gradient> for Gradient {
     type Output = Gradient;
 
     fn add(self, rhs: &Gradient) -> Self::Output {
         return self + rhs.clone();
+    }
+}
+
+impl Mul<Gradient> for f32 {
+    type Output = Gradient;
+
+    fn mul(self, mut rhs: Gradient) -> Self::Output {
+        assert!(rhs.dws.len() == rhs.dbs.len());
+
+        for i in 0..rhs.dws.len() {
+            rhs.dws[i] *= self;
+            rhs.dbs[i] *= self;
+        }
+        return rhs;
+    }
+}
+
+//FIXME
+impl Mul<&Gradient> for f32 {
+    type Output = Gradient;
+
+    fn mul(self, rhs: &Gradient) -> Self::Output {
+        assert!(rhs.dws.len() == rhs.dbs.len());
+        let mut grad: Gradient = rhs.clone();
+        for i in 0..grad.dws.len() {
+            grad.dws[i] *= self;
+            grad.dbs[i] *= self;
+        }
+        return grad;
     }
 }

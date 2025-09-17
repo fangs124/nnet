@@ -222,11 +222,11 @@ impl<T: InputType> Network<T> {
             //                 = dphi_n/da_k     * dphi(z) * a
 
             //no L2 regularization
-            //grad.dws.push(&dphidz * dzdw.transpose());
+            grad.dws.push(&dphidz * dzdw.transpose());
             //L2 regularization
-            let dw = &dphidz * dzdw.transpose();
-            let norm = dw.norm();
-            grad.dws.push(dw - (norm / 1000.0) * layer.w.clone());
+            //let dw = &dphidz * dzdw.transpose();
+            //let norm = dw.norm();
+            //grad.dws.push(dw - (norm / 1000.0) * layer.w.clone());
 
             // dN/db           = dphi_n/da_k     * da/dz   * dz/db
             //                 = dphi_n/da_k     * dphi(z) * 1
@@ -285,11 +285,11 @@ impl<T: InputType> Network<T> {
             //                 = dphi_n/da_k     * dphi(z) * a
 
             //no L2 regularization
-            //grad.dws.push(&dphidz * dzdw.transpose());
+            grad.dws.push(&dphidz * dzdw.transpose());
             //L2 regularization
-            let dw = &dphidz * dzdw.transpose();
-            let norm = dw.norm();
-            grad.dws.push(dw - (norm / 1000.0) * layer.w.clone());
+            //let dw = &dphidz * dzdw.transpose();
+            //let norm = dw.norm();
+            //grad.dws.push(dw - (norm / 1000.0) * layer.w.clone());
 
             // dN/db           = dphi_n/da_k     * da/dz   * dz/db
             //                 = dphi_n/da_k     * dphi(z) * 1
@@ -303,6 +303,20 @@ impl<T: InputType> Network<T> {
             grad.dbs_shape.push(db.len());
         }
 
+        return grad;
+    }
+
+    #[allow(non_snake_case)]
+    pub fn L2_regularization(&self, lambda: f32) -> Gradient {
+        let mut grad = Gradient::new();
+        for layer in self.layers.iter() {
+            let dw = lambda.abs() * layer.w.clone();
+            grad.dws_shape.push(dw.shape());
+            grad.dws.push(dw);
+            let db = DVector::from_element(layer.b.nrows(), 0.0);
+            grad.dbs_shape.push(db.len());
+            grad.dbs.push(db);
+        }
         return grad;
     }
 }
